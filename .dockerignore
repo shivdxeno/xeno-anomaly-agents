@@ -1,8 +1,0 @@
-node_modules
-build
-coverage
-.git
-.env
-findings.json
-messages.json
-plan.json

@@ -18,14 +18,11 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "detect": "ts-node -r dotenv/config src/scripts/detect.ts",
-    "render": "ts-node -r dotenv/config src/scripts/render.ts",
     "tickets:plan": "ts-node -r dotenv/config src/scripts/ticketsPlan.ts",
-    "tickets:apply": "ts-node -r dotenv/config src/scripts/ticketsApply.ts",
-    "post": "ts-node -r dotenv/config src/scripts/post.ts",
     "skill:generate": "ts-node src/scripts/generateSkill.ts",
     "skill:check": "ts-node src/scripts/generateSkill.ts --check",
-    "run:daily": "ts-node -r dotenv/config src/scripts/runDaily.ts",
-    "mcp:tools": "ts-node -r dotenv/config src/scripts/mcpTools.ts"
+    "queries": "ts-node -r dotenv/config src/scripts/queries.ts",
+    "plan": "ts-node -r dotenv/config src/scripts/plan.ts"
   },
   "lint-staged": {
     "*.{ts,js}": [
@@ -33,7 +30,6 @@
     ]
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
     "dotenv": "^16.4.5",
     "zod": "^3.23.8"
   },

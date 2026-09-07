@@ -28,27 +28,56 @@ second set of numbers that can disagree with the first.
 
 ## The run
 
-Five stages, in order. Each reads the previous stage's file and writes its own.
+**You are the transport.** Every external system — the stores, DevRev, Slack — is reached
+through a **connector**, and only this session is authenticated to it. So the script decides
+what to call and computes everything; you make the calls and save the results.
+
+The script composes every SQL string and every tool argument. **You compose none of it.**
 
 ```bash
-yarn detect --module=<module> --date=<YYYY-MM-DD> --out findings.json
-yarn render --in findings.json --out messages.json
-yarn tickets:plan  --in findings.json --out plan.json
-yarn tickets:apply --in plan.json
-yarn post --in messages.json
+# 1. what to fetch, round one
+yarn queries --module=<module> --date=<YYYY-MM-DD> --out round1.plan.json
+```
+→ Execute each `queries[]` entry with the **db-mcp** connector tool it names, and the
+`devrevLookup` call with the **DevRev** connector. Save results to `round1.json` as
+`{ "<query id>": <the tool's JSON output> }`, and the ticket list to `tickets.json`.
+
+```bash
+# 2. what to fetch, round two — scoped to what round one flagged
+yarn queries --module=<module> --round=2 --results round1.json --out round2.plan.json
+```
+→ Execute those the same way into `round2.json`. Then rebind the one query whose ids only
+exist now, and execute that single query too, merging it into `round2.json`:
+
+```bash
+yarn queries --module=<module> --round=2 --results round1.json \
+             --rebind round2.json --out silent.plan.json
 ```
 
-- **`detect` does all of it**: the window, every query, the noise floor, the print bar, the
-  chronic gate, shared-event compression, the merchant × issue rollup, `IncidentKey`s, the
-  section truth table, ranking, both caps. You read its output; you do not repeat its work.
-- **`render` produces the two Slack messages byte-exact.** Do not hand-edit them, do not
-  reformat them, do not add a line. If a message looks wrong, that is a defect in
-  `src/core/services/render` and a code change with a test — not something you fix in flight.
-- **`tickets:plan` is a plan, not a write.** Read it before applying: it is the last point at
-  which an irreversible action is still reversible. `tickets:apply` is the only stage that
-  writes to DevRev.
-- **A stage that exits non-zero stops the run.** Paste its error, name the stage, emit
-  `BLOCKED`. Never continue on a partial file.
+```bash
+# 3. every calculation in the run
+yarn detect --module=<module> --round1 round1.json --round2 round2.json \
+            --tickets tickets.json --out findings.json
+
+# 4. every write, as a plan
+yarn plan --in findings.json --round2 round2.json --channel=<id> --tokens=<N> --out plan.json
+```
+→ Then execute `plan.json`: the two `messages[]` through the **Slack** connector, and each
+`planned[]` entry through the **DevRev** connector using the `tool` it names.
+
+- **`detect` does all of it**: the window, the noise floor, the print bar, the chronic gate,
+  shared-event compression, the merchant × issue rollup, `IncidentKey`s, the section truth
+  table, ranking, both caps. You read its output; you do not repeat its work.
+- **`plan` produces the two Slack messages byte-exact.** Post the `text` verbatim. Do not
+  hand-edit, reformat, or add a line. If a message looks wrong that is a defect in
+  `src/core/services/render` and a code change with a test.
+- **A plan is not a write.** Read `plan.json` before executing it — it is the last point at
+  which an irreversible action is still reversible.
+- **A script that exits non-zero stops the run.** Paste its error, name the stage, emit
+  `BLOCKED`. Never continue on a partial file, and never fill a gap with a value of your own.
+- **⚑ Save tool output verbatim.** Do not summarise, truncate or reformat a result before
+  writing it to the results file. The script parses `columns`/`rows` exactly as db-mcp
+  returned them; a tidied result is a wrong result.
 
 ## What you decide
 
@@ -62,8 +91,8 @@ whole input surface.
    inconclusive.
 3. **A finding shaped like nothing the rules anticipated.** Escalate it to a human in the
    `Overview` caveat. Do not force it into the nearest category.
-4. **Whether a caveat is worth printing.** Pass short clauses with `--caveat`; they append to
-   the `Overview` line, which is the report's only run-level caveat slot.
+4. **Whether a caveat is worth printing.** Pass short clauses to `plan` with `--caveat`; they
+   append to the `Overview` line, which is the report's only run-level caveat slot.
 
 ## What you never decide
 
@@ -75,8 +104,8 @@ If you find yourself reasoning about one of these, you are about to violate the 
 
 ## Reporting the run
 
-- **The token count is mandatory** and belongs in the message the renderer built. Pass the
-  actual number to `render` via `--tokens`; if you genuinely cannot read it, pass nothing and
+- **The token count is mandatory** and belongs in the message the script built. Pass the
+  actual number to `plan` via `--tokens`; if you genuinely cannot read it, pass nothing and
   the line prints `unavailable`. The line never goes missing.
 - **Two messages, and only two.** There is no third, no footer below the journey table, and no
   context block under any name.

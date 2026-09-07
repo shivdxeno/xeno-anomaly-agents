@@ -18,45 +18,39 @@ Now that work is code with 59 tests behind it, and the prompt is ~2k tokens
 
 ## Running it
 
-```bash
-cp .env.example .env          # MCP tokens only — no DB passwords, no DevRev token
-yarn install
-yarn mcp:tools                # confirm the tool names before the first run
-
-# one command — what the CronJob runs
-yarn run:daily --module=journeys --channel=$SLACK_CHANNEL_ID
-
-# or stage by stage
-yarn detect  --module=journeys --date=2026-09-07 --out findings.json
-yarn render  --in findings.json --out messages.json --channel=$SLACK_CHANNEL_ID
-yarn tickets:plan  --in findings.json --out plan.json
-yarn tickets:apply --in plan.json          # the ONLY stage that writes to DevRev
-yarn post    --in messages.json
-```
-
-`--dry-run` on `tickets:apply`, `post` or `run:daily` prints what would happen and writes
-nothing. Use it for the first live run.
-
-## Everything external goes through MCP
-
-There is **no database driver and no hand-rolled HTTP call in this repo**, and there are no DB
-credentials or DevRev token in its environment. Every external system is reached through its
-MCP server, which already holds the credentials, the read-only scope, the per-user grants and
-the audit trail. Re-implementing that here would duplicate all four.
-
-Server URLs live in `.mcp.json` — the same file Claude Code reads.
-
-| What | MCP server | Tool |
-| ---- | ---------- | ---- |
-| metrics: `xeno_sql_zenmaster_new`, `mongo_journeys` | `db-mcp` | `query_starrocks` |
-| merchant names (**prod**) | `db-mcp` | `query_mysql` |
-| DevRev mappings (**dev** — these tables do not exist in prod) | `db-mcp` | `query_mysql_dev` |
-| tickets | `devrev` | see `src/core/services/devrev/client.ts` |
-| the report | `slack` | see `src/core/services/slack/client.ts` |
+The full sequence, with the agent executing the connector calls between steps, is in
+[`instructions/COMMON.md`](instructions/COMMON.md). The four script invocations are:
 
 ```bash
-yarn mcp:tools     # list what each server actually exposes — run this first
+yarn queries --module=journeys --date=2026-09-07 --out round1.plan.json
+yarn queries --module=journeys --round=2 --results round1.json --out round2.plan.json
+yarn detect  --module=journeys --round1 round1.json --round2 round2.json \
+             --tickets tickets.json --out findings.json
+yarn plan    --in findings.json --round2 round2.json --channel=$SLACK_CHANNEL_ID --out plan.json
 ```
+
+Nothing in this list touches the network. `plan.json` is a plan, not a write — read it before
+the agent executes it.
+
+## Everything external goes through an MCP connector
+
+There is **no database driver, no HTTP client and no credential of any kind in this repo**.
+Every external system is reached through its MCP **connector**, authenticated at the Claude
+Code layer — which already holds the credentials, the read-only scopes, the per-user grants
+and the audit trail.
+
+**That is why the runner is a Claude Code routine and not a cron job.** A connector cannot be
+authenticated by a headless process, so the agent session makes the calls and the scripts do
+the deterministic work either side of them. The scripts compose every SQL string and every
+tool argument; the agent composes none of it and calculates nothing.
+
+| What | Connector | Tool |
+| ---- | --------- | ---- |
+| metrics: `xeno_sql_zenmaster_new`, `mongo_journeys` | db-mcp | `query_starrocks` |
+| merchant names (**prod**) | db-mcp | `query_mysql` |
+| DevRev mappings (**dev** — these tables do not exist in prod) | db-mcp | `query_mysql_dev` |
+| tickets | DevRev | `src/core/services/devrev/tools.ts` |
+| the report | Slack | `src/core/services/devrev/tools.ts` |
 
 ## Layout
 

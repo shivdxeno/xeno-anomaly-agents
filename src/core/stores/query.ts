@@ -1,14 +1,20 @@
 import { readFileSync } from 'node:fs';
 
-import { callTool } from '../mcp/client';
-
 /**
- * Which db-mcp tool each store is reached by. All three go through the same MCP server, which
- * is what keeps the read-only scope and the grant audit in one place.
+ * This repo never talks to a store. The MCP servers are reached through **connectors**, which
+ * are authenticated at the Claude Code layer, so only the agent session can call them.
+ *
+ * The division of labour that follows from that:
+ *   - the script decides WHICH queries to run and composes the exact SQL  (`yarn queries`)
+ *   - the agent executes them through the db-mcp connector and saves the raw results
+ *   - the script does every calculation on those results                  (`yarn detect`)
+ *
+ * The agent is a pipe for tool calls. It composes no SQL and computes nothing.
  */
 export type TStore = 'starrocks' | 'mysqlProd' | 'mysqlDev';
 
-const toolFor = (store: TStore): string => {
+/** The db-mcp tool each store is reached by. Named here so the plan can print it. */
+export const toolFor = (store: TStore): string => {
   switch (store) {
     case 'starrocks':
       return 'query_starrocks';
@@ -21,24 +27,26 @@ const toolFor = (store: TStore): string => {
 
 export type TRow = Record<string, unknown>;
 
-/** db-mcp returns one text block holding this shape. */
-type TQueryPayload = {
+/** One query for the agent to execute. `id` is how the result is handed back. */
+export type TPlannedQuery = { id: string; store: TStore; tool: string; sql: string };
+
+/** db-mcp returns this shape as a single text block. */
+export type TQueryResult = {
   columns: Array<string>;
   rows: Array<Array<unknown>>;
-  row_count?: number;
-  duration_ms?: number;
   error?: string;
 };
+
+export type TResultsFile = Record<string, TQueryResult>;
 
 export type TParams = Record<string, string | number | Array<string | number>>;
 
 const quote = (value: string | number): string =>
-  typeof value === 'number' ? String(value) : `'${value.replace(/'/g, "''")}'`;
+  typeof value === 'number' ? String(value) : `'${String(value).replace(/'/g, "''")}'`;
 
 /**
- * Binds `:name` placeholders. A list binds as a comma-separated literal because these servers
- * take a SQL string, not a parameter array. Every value here is an id or a date this pipeline
- * computed — nothing a person typed reaches it.
+ * Binds `:name` placeholders. A list binds as a comma-separated literal because db-mcp takes
+ * a SQL string, not a parameter array. Every value is an id or a date this pipeline computed.
  */
 export const bindSql = (sql: string, params: TParams): string =>
   Object.entries(params).reduce((acc, [key, value]) => {
@@ -49,27 +57,30 @@ export const bindSql = (sql: string, params: TParams): string =>
 
 export const loadSql = (path: string): string => readFileSync(path, 'utf8');
 
-export const query = async (
+export const plannedQuery = (
+  id: string,
   store: TStore,
-  sql: string,
+  sqlPath: string,
   params: TParams = {},
-): Promise<Array<TRow>> => {
-  const text = await callTool('db-mcp', toolFor(store), { sql: bindSql(sql, params) });
-  let payload: TQueryPayload;
+): TPlannedQuery => ({ id, store, tool: toolFor(store), sql: bindSql(loadSql(sqlPath), params) });
 
-  try {
-    payload = JSON.parse(text) as TQueryPayload;
-  } catch {
-    throw new Error(`db-mcp ${toolFor(store)} returned unparseable output: ${text.slice(0, 300)}`);
+/**
+ * Decodes one saved result into row objects. A result carrying `error` stops the run — either
+ * signal means stop, and reading past it produces work built on state that was never there.
+ */
+export const rowsOf = (results: TResultsFile, id: string): Array<TRow> => {
+  const result = results[id];
+
+  if (result === undefined) {
+    throw new Error(`BLOCKED: results file has no entry for query "${id}"`);
   }
 
-  // A non-zero exit and an "error" body mean the same thing: stop, do not read past it.
-  if (payload.error !== undefined) {
-    throw new Error(`db-mcp ${toolFor(store)}: ${payload.error}`);
+  if (result.error !== undefined) {
+    throw new Error(`BLOCKED: query "${id}" returned an error: ${result.error}`);
   }
 
-  return payload.rows.map((row) =>
-    Object.fromEntries(payload.columns.map((column, index) => [column, row[index]])),
+  return result.rows.map((row) =>
+    Object.fromEntries(result.columns.map((column, index) => [column, row[index]])),
   );
 };
 

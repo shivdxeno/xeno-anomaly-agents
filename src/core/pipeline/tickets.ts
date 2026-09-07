@@ -1,12 +1,15 @@
 import type { TFindingsFile } from './detect';
 import type { TFinding, TModuleSpec } from '../types';
 
+import { devrevTools } from '../services/devrev/tools';
 import { selectTicketable } from '../services/rank';
 import { shortDate } from '../services/render';
 import { formatCount } from '../utils/numbers';
 
 export type TPlannedTicket = {
   action: 'create' | 'comment';
+  /** The connector tool the agent calls for this action. */
+  tool: string;
   incidentKey: string;
   merchantId: number;
   existingTicketId: string | null;
@@ -23,7 +26,10 @@ export type TPlannedTicket = {
 export type TTicketPlan = {
   module: string;
   runDate: string;
+  /** DevRev connector calls, in order. The agent executes these; the script composes them. */
   planned: Array<TPlannedTicket>;
+  /** Slack connector calls: the two messages, already rendered. */
+  messages: Array<{ tool: string; channel: string; text: string }>;
   suppressedByCap: number;
 };
 
@@ -81,12 +87,16 @@ const detailComment = (group: Array<TFinding>, findings: TFindingsFile): string 
  * journeys are affected. The plan is written to a file and reviewed before anything is
  * created — this is the last point at which an irreversible action is still reversible.
  */
-export const planTickets = (
-  findings: TFindingsFile,
-  spec: TModuleSpec,
-  resolution: Map<number, { accountDon: string | null; revOrgDon: string | null }>,
-  ownerDon: string | null,
-): TTicketPlan => {
+export type TPlanInput = {
+  findings: TFindingsFile;
+  spec: TModuleSpec;
+  resolution: Map<number, { accountDon: string | null; revOrgDon: string | null }>;
+  ownerDon: string | null;
+  messages: Array<{ tool: string; channel: string; text: string }>;
+};
+
+export const planTickets = (input: TPlanInput): TTicketPlan => {
+  const { findings, spec, resolution, ownerDon } = input;
   const all = [...findings.merchants, ...findings.journeys];
   const groups = new Map<string, Array<TFinding>>();
 
@@ -120,6 +130,7 @@ export const planTickets = (
 
     planned.push({
       action: isNew ? 'create' : 'comment',
+      tool: isNew ? devrevTools.createTicket : devrevTools.addComment,
       incidentKey: key,
       merchantId: first.merchantId,
       existingTicketId: first.ticketId,
@@ -140,6 +151,7 @@ export const planTickets = (
     module: findings.module,
     runDate: findings.runDate,
     planned,
+    messages: input.messages,
     suppressedByCap: Math.max(newCount - ticketable.length, 0),
   };
 };
