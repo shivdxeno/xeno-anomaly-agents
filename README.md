@@ -118,3 +118,4 @@ yarn lint && yarn build && yarn test:run && yarn skill:check
 
 `yarn skill:check` fails when a committed `SKILL.md` no longer matches its sources — without
 it, a common instruction gets fixed in one module's composed file and never reaches the others.
+# xeno-anomaly-agents
