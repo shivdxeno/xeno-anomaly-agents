@@ -126,6 +126,17 @@ export type TModuleSpec = {
   excludedMerchantIds: Array<number>;
   /** Substrings in a merchant name that mean "not a real account". */
   excludedNamePatterns: Array<string>;
+  /**
+   * Plain configuration, not secrets — no token or password belongs in this repo. The DONs
+   * come from DevRev admin; the channel is where the report is posted.
+   */
+  devrev: {
+    serviceAccountDon: string;
+    appliesToPart: string;
+    reportedByDon: string;
+    resolvedStage: string;
+  };
+  slackChannel: { name: string; id: string };
   thresholds?: Partial<TThresholds>;
 };
 

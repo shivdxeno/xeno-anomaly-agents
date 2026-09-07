@@ -24,7 +24,14 @@ const main = (): void => {
   const findings = JSON.parse(readFileSync(requireArg(args, 'in'), 'utf8')) as TFindingsFile;
   const spec = moduleById(findings.module);
   const out = typeof args.out === 'string' ? args.out : 'plan.json';
-  const channel = requireArg(args, 'channel');
+  const channel = typeof args.channel === 'string' ? args.channel : spec.slackChannel.id;
+
+  if (channel === '') {
+    throw new Error(
+      'BLOCKED: no Slack channel id. Pass --channel, or fill slackChannel.id in ' +
+        `src/modules/${spec.id}/spec.ts (the channel is #${spec.slackChannel.name}).`,
+    );
+  }
   const resolution = new Map<number, { accountDon: string | null; revOrgDon: string | null }>();
   let ownerDon: string | null = null;
 

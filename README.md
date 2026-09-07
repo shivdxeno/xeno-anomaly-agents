@@ -16,21 +16,42 @@ deterministic, untestable in that form, and different every morning.
 Now that work is code with 59 tests behind it, and the prompt is ~2k tokens
 (`skills/journeys/SKILL.md`). A clean morning costs no model tokens at all.
 
-## Running it
+## Running it as a routine
 
-The full sequence, with the agent executing the connector calls between steps, is in
-[`instructions/COMMON.md`](instructions/COMMON.md). The four script invocations are:
+The repo is the agent. Clone it, install, and point a Claude Code routine at it:
+
+```
+Run the journeys anomaly agent for today.
+```
+
+The skill at `.claude/skills/journeys-anomaly-agent/SKILL.md` is discovered automatically and
+carries the whole procedure. **The session needs three connectors enabled** — db-mcp, DevRev
+and Slack — because the scripts never touch the network; the agent makes every call.
+
+One-time setup in the clone:
+
+```bash
+yarn install
+```
+
+That is all. There is no `.env`: every value the scripts need is plain configuration in
+`src/modules/<part>/spec.ts`.
+
+### The four script invocations
+
+The agent runs these, executing connector calls between them — the full sequence with the
+call-and-save steps is in [`instructions/COMMON.md`](instructions/COMMON.md).
 
 ```bash
 yarn queries --module=journeys --date=2026-09-07 --out round1.plan.json
 yarn queries --module=journeys --round=2 --results round1.json --out round2.plan.json
 yarn detect  --module=journeys --round1 round1.json --round2 round2.json \
              --tickets tickets.json --out findings.json
-yarn plan    --in findings.json --round2 round2.json --channel=$SLACK_CHANNEL_ID --out plan.json
+yarn plan    --in findings.json --round2 round2.json --out plan.json --tokens=<N>
 ```
 
-Nothing in this list touches the network. `plan.json` is a plan, not a write — read it before
-the agent executes it.
+Nothing in that list touches the network, and none of it needs a credential. `plan.json` is a
+plan, not a write — read it before the agent executes it.
 
 ## Everything external goes through an MCP connector
 
@@ -74,6 +95,20 @@ docs/              the original v4 prompt, kept as the rationale record
 
 Nothing in `src/core` changes, and the compiler checks every module against a core change in
 the same build.
+
+## Before the first run
+
+Two values are unknown and will block rather than guess:
+
+1. **The Slack channel id.** `spec.ts` has the channel *name*
+   (`proj-data-anomaly-alerting-agents`) but not its id, so `yarn plan` stops and says so.
+   Fill `slackChannel.id`, or pass `--channel`.
+2. **The DevRev and Slack connector tool names** in
+   `src/core/services/devrev/tools.ts`. Open the connectors' tool lists in a session and
+   correct that one file. A wrong name fails on the first call.
+
+Then do the first run with `--tokens` set and read `plan.json` before letting the agent
+execute it.
 
 ## Checks
 

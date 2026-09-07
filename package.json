@@ -17,12 +17,12 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "detect": "ts-node -r dotenv/config src/scripts/detect.ts",
-    "tickets:plan": "ts-node -r dotenv/config src/scripts/ticketsPlan.ts",
+    "detect": "ts-node src/scripts/detect.ts",
+    "tickets:plan": "ts-node src/scripts/ticketsPlan.ts",
     "skill:generate": "ts-node src/scripts/generateSkill.ts",
     "skill:check": "ts-node src/scripts/generateSkill.ts --check",
-    "queries": "ts-node -r dotenv/config src/scripts/queries.ts",
-    "plan": "ts-node -r dotenv/config src/scripts/plan.ts"
+    "queries": "ts-node src/scripts/queries.ts",
+    "plan": "ts-node src/scripts/plan.ts"
   },
   "lint-staged": {
     "*.{ts,js}": [
@@ -30,7 +30,6 @@
     ]
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {

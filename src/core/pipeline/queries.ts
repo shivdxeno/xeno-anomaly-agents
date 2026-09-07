@@ -55,7 +55,7 @@ export const planRound1 = (spec: TModuleSpec, runDate: string): TQueryPlan => {
     ],
     devrevLookup: {
       tool: devrevTools.listTickets,
-      args: { created_by: [process.env.DEVREV_SERVICE_ACCOUNT_DON ?? ''], limit: 200 },
+      args: { created_by: [spec.devrev.serviceAccountDon], limit: 200 },
     },
   };
 };

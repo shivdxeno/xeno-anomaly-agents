@@ -49,4 +49,18 @@ export const journeysModule: TModuleSpec = {
 
   excludedMerchantIds: [120, 1671],
   excludedNamePatterns: ['Staging', 'Testing', 'V2 Staging'],
+
+  // Verified 2026-09-07 against live ticket payloads. The org is dvrv-in-1, tenant
+  // devo/2CB1Ol9rdd; PROD-1 is the only part any ticket in the org uses. Support Bot is a
+  // SHARED identity, which is why the lookup also discards titles lacking the agent prefix.
+  devrev: {
+    serviceAccountDon: 'don:identity:dvrv-in-1:devo/2CB1Ol9rdd:devu/19',
+    appliesToPart: 'don:core:dvrv-in-1:devo/2CB1Ol9rdd:product/1',
+    reportedByDon: 'don:identity:dvrv-in-1:devo/2CB1Ol9rdd:devu/19',
+    resolvedStage: 'resolved',
+  },
+
+  // ⚑ The id is UNKNOWN and must be filled before the first run. The channel NAME is from
+  // agent.md; nobody has stated its id, and inventing one posts the report into silence.
+  slackChannel: { name: 'proj-data-anomaly-alerting-agents', id: '' },
 };

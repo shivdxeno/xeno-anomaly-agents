@@ -1,7 +1,15 @@
+---
+name: journeys-anomaly-agent
+description: >-
+  Runs the Journey Anomaly Agent: detects anomalies in journeys communications for the fixed
+  daily window, posts the two-message report to Slack and files DevRev tickets at merchant
+  x issue grain. Use when asked to run the journeys anomaly agent, produce the daily
+  journeys anomaly report, or investigate a drop in journeys sending or delivery.
+---
+
 <!--
-  GENERATED FILE — do not edit.
+  GENERATED FILE — do not edit. Run `yarn skill:generate`.
   Source: instructions/COMMON.md + instructions/modules/journeys/MODULE.md
-  Regenerate with: yarn skill:generate
 -->
 # Operating instructions — common
 

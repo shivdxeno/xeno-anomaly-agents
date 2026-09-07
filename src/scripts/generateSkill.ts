@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import type { TModuleSpec } from '../core/types';
 
@@ -18,12 +18,28 @@ import { journeysModule } from '../modules/journeys/spec';
 const repoRoot = join(__dirname, '..', '..');
 const modules: Array<TModuleSpec> = [journeysModule];
 
+/** The skill name a routine triggers on. Lowercase, hyphenated, max 64 chars. */
+const skillName = (spec: TModuleSpec): string => `${spec.id}-anomaly-agent`;
+
+/**
+ * YAML frontmatter is what makes this an Agent Skill rather than a markdown file: Claude Code
+ * preloads only `name` and `description`, and reads the body when the description matches the
+ * task. Without it the file is never discovered.
+ */
 const banner = (spec: TModuleSpec): string =>
   [
+    '---',
+    `name: ${skillName(spec)}`,
+    'description: >-',
+    `  Runs the ${spec.agentName}: detects anomalies in ${spec.id} communications for the fixed`,
+    '  daily window, posts the two-message report to Slack and files DevRev tickets at merchant',
+    `  x issue grain. Use when asked to run the ${spec.id} anomaly agent, produce the daily`,
+    `  ${spec.id} anomaly report, or investigate a drop in ${spec.id} sending or delivery.`,
+    '---',
+    '',
     '<!--',
-    '  GENERATED FILE — do not edit.',
+    '  GENERATED FILE — do not edit. Run `yarn skill:generate`.',
     `  Source: instructions/COMMON.md + instructions/modules/${spec.id}/MODULE.md`,
-    '  Regenerate with: yarn skill:generate',
     '-->',
     '',
   ].join('\n');
@@ -35,7 +51,8 @@ const compose = (spec: TModuleSpec): string => {
   return `${banner(spec)}${common.trimEnd()}\n\n---\n\n${own.trimEnd()}\n`;
 };
 
-const skillPath = (spec: TModuleSpec): string => join(repoRoot, 'skills', spec.id, 'SKILL.md');
+const skillPath = (spec: TModuleSpec): string =>
+  join(repoRoot, '.claude', 'skills', skillName(spec), 'SKILL.md');
 
 const run = (): number => {
   const check = process.argv.includes('--check');
@@ -46,15 +63,18 @@ const run = (): number => {
     const target = skillPath(spec);
 
     if (!check) {
+      mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, composed, 'utf8');
-      logger.info(`wrote skills/${spec.id}/SKILL.md (${composed.split('\n').length} lines)`);
+      logger.info(
+        `wrote .claude/skills/${skillName(spec)}/SKILL.md (${composed.split('\n').length} lines)`,
+      );
       continue;
     }
 
     const current = readFileSync(target, 'utf8');
 
     if (current !== composed) {
-      logger.error(`STALE: skills/${spec.id}/SKILL.md — run yarn skill:generate`);
+      logger.error(`STALE: ${skillName(spec)}/SKILL.md — run yarn skill:generate`);
       stale += 1;
     }
   }

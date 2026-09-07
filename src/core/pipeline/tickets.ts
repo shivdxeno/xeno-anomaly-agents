@@ -21,6 +21,8 @@ export type TPlannedTicket = {
   accountDon: string | null;
   revOrgDon: string | null;
   ownerDon: string | null;
+  appliesToPart: string;
+  reportedByDon: string;
 };
 
 export type TTicketPlan = {
@@ -142,6 +144,8 @@ export const planTickets = (input: TPlanInput): TTicketPlan => {
       accountDon: resolved?.accountDon ?? null,
       revOrgDon: resolved?.revOrgDon ?? null,
       ownerDon,
+      appliesToPart: spec.devrev.appliesToPart,
+      reportedByDon: spec.devrev.reportedByDon,
     });
   }
 
