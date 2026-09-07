@@ -140,11 +140,12 @@ export type TModuleSpec = {
     name: string;
     id: string;
     /**
-     * Where `--test` posts instead. A DM channel (`D...`) or the user id (`U...`) Slack
-     * resolves to one. Kept separate from `id` so a test target can never be left in the
-     * production field by accident.
+     * Where `--test` posts instead: a person's Slack display name. The agent resolves it to a
+     * DM through the Slack connector at run time, which is why a name is enough and no id
+     * needs pasting in. Kept separate from `id` so a test target can never end up in the
+     * production field.
      */
-    testDmId: string;
+    testDmUserName: string;
   };
   thresholds?: Partial<TThresholds>;
 };

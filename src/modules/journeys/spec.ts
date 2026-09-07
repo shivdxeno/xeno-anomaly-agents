@@ -65,7 +65,7 @@ export const journeysModule: TModuleSpec = {
   slackChannel: {
     name: 'proj-data-anomaly-alerting-agents',
     id: '',
-    // Shiv Deshpande's DM, for test runs. UNKNOWN — Slack profile → ⋮ → Copy member ID.
-    testDmId: '',
+    // `--test` DMs this person instead of posting to the channel.
+    testDmUserName: 'Shiv Deshpande',
   },
 };

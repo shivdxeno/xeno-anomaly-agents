@@ -6,6 +6,15 @@ import { selectTicketable } from '../services/rank';
 import { shortDate } from '../services/render';
 import { formatCount } from '../utils/numbers';
 
+export type TPlannedMessage = {
+  tool: string;
+  /** The channel to post to, or null when `dmUserName` is set. */
+  channel: string | null;
+  /** A person to DM — the agent resolves the name to a DM via the Slack connector. */
+  dmUserName: string | null;
+  text: string;
+};
+
 export type TPlannedTicket = {
   action: 'create' | 'comment';
   /** The connector tool the agent calls for this action. */
@@ -30,8 +39,11 @@ export type TTicketPlan = {
   runDate: string;
   /** DevRev connector calls, in order. The agent executes these; the script composes them. */
   planned: Array<TPlannedTicket>;
-  /** Slack connector calls: the two messages, already rendered. */
-  messages: Array<{ tool: string; channel: string; text: string }>;
+  /**
+   * Slack connector calls: the two messages, already rendered. Exactly one of `channel` or
+   * `dmUserName` is set — a test run names the person and the agent resolves the DM.
+   */
+  messages: Array<TPlannedMessage>;
   suppressedByCap: number;
 };
 
@@ -94,7 +106,7 @@ export type TPlanInput = {
   spec: TModuleSpec;
   resolution: Map<number, { accountDon: string | null; revOrgDon: string | null }>;
   ownerDon: string | null;
-  messages: Array<{ tool: string; channel: string; text: string }>;
+  messages: Array<TPlannedMessage>;
 };
 
 export const planTickets = (input: TPlanInput): TTicketPlan => {

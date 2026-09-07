@@ -27,18 +27,17 @@ const main = (): void => {
   // A test run posts somewhere private AND files nothing. Those two belong together: a report
   // in a DM with real tickets filed against real merchants is the worst of both.
   const test = args.test === true;
-  const configured = test ? spec.slackChannel.testDmId : spec.slackChannel.id;
-  const channel = typeof args.channel === 'string' ? args.channel : configured;
+  const override = typeof args.channel === 'string' ? args.channel : null;
+
+  // On a test run the target is a person's NAME, which the agent resolves to a DM through the
+  // Slack connector. On a real run it is a channel id and there is nothing to resolve.
+  const dmUserName = test && override === null ? spec.slackChannel.testDmUserName : null;
+  const channel = dmUserName === null ? (override ?? spec.slackChannel.id) : null;
 
   if (channel === '') {
-    const field = test ? 'slackChannel.testDmId' : 'slackChannel.id';
-    const hint = test
-      ? 'the DM to post test runs to — Slack profile, then Copy member ID'
-      : `the channel is #${spec.slackChannel.name}`;
-
     throw new Error(
-      `BLOCKED: no Slack channel id. Pass --channel, or fill ${field} in ` +
-        `src/modules/${spec.id}/spec.ts (${hint}).`,
+      'BLOCKED: no Slack channel id. Pass --channel, or fill slackChannel.id in ' +
+        `src/modules/${spec.id}/spec.ts (the channel is #${spec.slackChannel.name}).`,
     );
   }
   const resolution = new Map<number, { accountDon: string | null; revOrgDon: string | null }>();
@@ -78,9 +77,15 @@ const main = (): void => {
       {
         tool: slackTools.sendMessage,
         channel,
+        dmUserName,
         text: renderMerchantMessage(findings.merchants, ctx),
       },
-      { tool: slackTools.sendMessage, channel, text: renderJourneyMessage(findings.journeys, ctx) },
+      {
+        tool: slackTools.sendMessage,
+        channel,
+        dmUserName,
+        text: renderJourneyMessage(findings.journeys, ctx),
+      },
     ],
   });
   const merchantIds = [
@@ -98,8 +103,8 @@ const main = (): void => {
 
   if (test) {
     logger.warn(
-      `TEST RUN: posting to ${channel} and filing NOTHING — ${plan.planned.length} devrev ` +
-        'calls were dropped from the plan.',
+      `TEST RUN: DM to ${dmUserName ?? channel} and filing NOTHING — ${plan.planned.length} ` +
+        'devrev calls were dropped from the plan.',
     );
   }
 
