@@ -29,6 +29,9 @@ what to call and computes everything; you make the calls and save the results.
 
 The script composes every SQL string and every tool argument. **You compose none of it.**
 
+**First, in the repo root:** run `yarn install` if `node_modules` is absent. A fresh clone has
+no dependencies and every command below fails with `ts-node: command not found` until it does.
+
 ```bash
 # 1. what to fetch, round one
 yarn queries --module=<module> --date=<YYYY-MM-DD> --out round1.plan.json
@@ -80,6 +83,15 @@ of both. A plan carrying `"testRun": true` has nothing to file — do not add th
   which an irreversible action is still reversible.
 - **A script that exits non-zero stops the run.** Paste its error, name the stage, emit
   `BLOCKED`. Never continue on a partial file, and never fill a gap with a value of your own.
+- **`--tickets` is optional.** Omit it and every finding classifies as `NEW`, because nothing
+  is known to have a ticket. That is the right shape for a first test run: it exercises the
+  detection and the report without depending on the DevRev lookup. On a real run it is
+  required — without it the agent re-files a ticket for every incident already open.
+- **A tool name in a plan may not exist on your connector.** Check it against the connector's
+  own tool list before calling. If the name is wrong, use the one that plainly corresponds and
+  **say which substitution you made** in your report — the names in
+  `src/core/services/devrev/tools.ts` are pending confirmation and a correction there is a
+  code change somebody should make.
 - **⚑ Save tool output verbatim.** Do not summarise, truncate or reformat a result before
   writing it to the results file. The script parses `columns`/`rows` exactly as db-mcp
   returned them; a tidied result is a wrong result.
