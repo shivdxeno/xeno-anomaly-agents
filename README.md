@@ -53,10 +53,13 @@ yarn plan    --in findings.json --round2 round2.json --out plan.json --tokens=<N
 Nothing in that list touches the network, and none of it needs a credential. `plan.json` is a
 plan, not a write — read it before the agent executes it.
 
-**Test runs: add `--test` to `yarn plan`.** It posts to `slackChannel.testDmId` instead of the
+**Test runs: add `--test` to `yarn plan`.** It DMs `slackChannel.testDmUserName` instead of the
 channel **and drops every DevRev write from the plan**. Those two are one flag on purpose — a
 report in a DM with real tickets filed against real merchants is the worst of both. The plan
 comes back marked `"testRun": true` with an empty `planned[]`.
+
+The DM target is a **name**, not an id: the agent resolves it through the Slack connector at
+run time, so nothing needs pasting in.
 
 ## Everything external goes through an MCP connector
 
@@ -106,9 +109,9 @@ the same build.
 Two values are unknown and will block rather than guess:
 
 1. **The Slack ids.** `spec.ts` has the channel *name*
-   (`proj-data-anomaly-alerting-agents`) but not its id, and `testDmId` is empty too, so
-   `yarn plan` stops and names whichever one it needed. Fill them in `spec.ts`, or pass
-   `--channel`. A guessed id posts the report into silence, which looks like a working run.
+   (`proj-data-anomaly-alerting-agents`) but not its id, so `yarn plan` stops and says so.
+   Fill `slackChannel.id`, or pass `--channel`. A guessed id posts the report into silence,
+   which looks like a working run. **Test runs need nothing** — `--test` resolves a name.
 2. **The DevRev and Slack connector tool names** in
    `src/core/services/devrev/tools.ts`. Open the connectors' tool lists in a session and
    correct that one file. A wrong name fails on the first call.

@@ -55,10 +55,20 @@ yarn detect --module=<module> --round1 round1.json --round2 round2.json \
             --tickets tickets.json --out findings.json
 
 # 4. every write, as a plan
-yarn plan --in findings.json --round2 round2.json --channel=<id> --tokens=<N> --out plan.json
+yarn plan --in findings.json --round2 round2.json --tokens=<N> --out plan.json
 ```
 → Then execute `plan.json`: the two `messages[]` through the **Slack** connector, and each
 `planned[]` entry through the **DevRev** connector using the `tool` it names.
+
+**⚑ Each message names EITHER a channel or a person, never both.** An entry with `channel`
+set is posted to that channel. An entry with `dmUserName` set instead means: look that person
+up with the Slack connector and post to your DM with them. Resolve the name at run time — no
+Slack id is stored anywhere, deliberately.
+
+**For a test run, add `--test` to `yarn plan`.** It DMs the module's configured person instead
+of posting to the channel **and empties the DevRev calls from the plan**. Those two go
+together, because a report in a DM with real tickets filed against real merchants is the worst
+of both. A plan carrying `"testRun": true` has nothing to file — do not add the calls back.
 
 - **`detect` does all of it**: the window, the noise floor, the print bar, the chronic gate,
   shared-event compression, the merchant × issue rollup, `IncidentKey`s, the section truth
