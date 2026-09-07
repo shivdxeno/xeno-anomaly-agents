@@ -19,8 +19,9 @@ Now that work is code with 59 tests behind it, and the prompt is ~2k tokens
 ## Running it
 
 ```bash
-cp .env.example .env          # values come from Infisical, never committed
+cp .env.example .env          # MCP tokens only — no DB passwords, no DevRev token
 yarn install
+yarn mcp:tools                # confirm the tool names before the first run
 
 # one command — what the CronJob runs
 yarn run:daily --module=journeys --channel=$SLACK_CHANNEL_ID
@@ -36,13 +37,26 @@ yarn post    --in messages.json
 `--dry-run` on `tickets:apply`, `post` or `run:daily` prints what would happen and writes
 nothing. Use it for the first live run.
 
-## Stores
+## Everything external goes through MCP
 
-| What | Where | Why separate |
-| ---- | ----- | ------------ |
-| all metrics | StarRocks `xeno_sql_zenmaster_new`, `mongo_journeys` | speaks the MySQL wire protocol, so one driver |
-| merchant names | **prod** MySQL `zenmaster_new.merchant` | source of truth for names; never metrics |
-| DevRev mappings | **dev** MySQL `zenmaster_new.devrev_*` | those tables do not exist in prod |
+There is **no database driver and no hand-rolled HTTP call in this repo**, and there are no DB
+credentials or DevRev token in its environment. Every external system is reached through its
+MCP server, which already holds the credentials, the read-only scope, the per-user grants and
+the audit trail. Re-implementing that here would duplicate all four.
+
+Server URLs live in `.mcp.json` — the same file Claude Code reads.
+
+| What | MCP server | Tool |
+| ---- | ---------- | ---- |
+| metrics: `xeno_sql_zenmaster_new`, `mongo_journeys` | `db-mcp` | `query_starrocks` |
+| merchant names (**prod**) | `db-mcp` | `query_mysql` |
+| DevRev mappings (**dev** — these tables do not exist in prod) | `db-mcp` | `query_mysql_dev` |
+| tickets | `devrev` | see `src/core/services/devrev/client.ts` |
+| the report | `slack` | see `src/core/services/slack/client.ts` |
+
+```bash
+yarn mcp:tools     # list what each server actually exposes — run this first
+```
 
 ## Layout
 

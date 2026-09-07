@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "db-mcp": {
+      "type": "http",
+      "url": "https://db-mcp.xeno.in/mcp"
+    },
+    "slack": {
+      "type": "http",
+      "url": "https://mcp.slack.com/mcp"
+    },
+    "devrev": {
+      "type": "http",
+      "url": "${env:DEVREV_MCP_URL}"
+    }
+  }
+}

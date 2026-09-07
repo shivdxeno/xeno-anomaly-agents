@@ -1,29 +1,27 @@
+import { callTool } from '../../mcp/client';
 import { logger } from '../../utils/logger';
 
-const apiBase = 'https://api.devrev.ai';
-
-const token = (): string => {
-  const value = process.env.DEVREV_TOKEN;
-
-  if (value === undefined || value === '') {
-    throw new Error('BLOCKED: DEVREV_TOKEN is not set — see .env.example');
-  }
-
-  return value;
+/**
+ * DevRev is reached through its MCP server, not its REST API — same reason as the stores: the
+ * server holds the token and the audit.
+ *
+ * ⚑ THESE TOOL NAMES MUST BE CONFIRMED BEFORE THE FIRST RUN. Run `yarn mcp:tools` and check
+ * each one against what the server actually exposes. A name that does not exist fails loudly
+ * on the first call, which is the right failure — but finding out at 09:30 unattended is not.
+ */
+export const devrevTools = {
+  listTickets: 'devrev_list_tickets',
+  createTicket: 'devrev_create_ticket',
+  addComment: 'devrev_add_timeline_comment',
+  updateWork: 'devrev_update_work',
 };
 
-const call = async (path: string, body: unknown): Promise<Record<string, unknown>> => {
-  const response = await fetch(`${apiBase}${path}`, {
-    method: 'POST',
-    headers: { authorization: token(), 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(`devrev ${path} ${response.status}: ${await response.text()}`);
+const asJson = (text: string): Record<string, unknown> => {
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return { raw: text };
   }
-
-  return (await response.json()) as Record<string, unknown>;
 };
 
 export type TDevrevTicket = {
@@ -36,24 +34,23 @@ export type TDevrevTicket = {
   closedDate: string | null;
 };
 
-const titlePrefixFor = (agentName: string): string => `[${agentName}]`;
-
 /**
- * ONE call, filtered on `created_by` only. Do NOT pass `tags`: the tag does not exist in the
- * org, and this endpoint rejects a plain-string tag filter with `unexpected_id_type` anyway.
+ * ONE call, filtered on `created_by` only. Do NOT pass a `tags` filter: the tag does not
+ * exist in the org and this endpoint rejects a plain-string tag with `unexpected_id_type`.
  *
  * The service account is SHARED — humans file test tickets as the same identity — so every
- * row whose title does not start with the agent's prefix is discarded here. That discard is
- * the only thing separating the agent's tickets from anything else the account created.
+ * row whose title does not start with the agent's prefix is discarded here. With tags gone,
+ * that discard is the only thing separating the agent's tickets from anything else the
+ * account created.
  */
 export const listAgentTickets = async (agentName: string): Promise<Array<TDevrevTicket>> => {
-  const result = await call('/works.list', {
-    type: ['ticket'],
+  const text = await callTool('devrev', devrevTools.listTickets, {
     created_by: [process.env.DEVREV_SERVICE_ACCOUNT_DON],
     limit: 200,
   });
-  const works = (result.works ?? []) as Array<Record<string, any>>;
-  const prefix = titlePrefixFor(agentName);
+  const payload = asJson(text);
+  const works = (payload.works ?? payload.tickets ?? []) as Array<Record<string, unknown>>;
+  const prefix = `[${agentName}]`;
 
   if (works.length >= 200) {
     logger.warn('devrev returned 200+ tickets — the recovery rule is not running');
@@ -61,16 +58,20 @@ export const listAgentTickets = async (agentName: string): Promise<Array<TDevrev
 
   return works
     .filter((w) => String(w.title ?? '').startsWith(prefix))
-    .map((w) => ({
-      id: String(w.id),
-      displayId: String(w.display_id ?? ''),
-      title: String(w.title ?? ''),
-      body: String(w.body ?? ''),
-      stage: String(w.stage?.name ?? ''),
-      createdDate: String(w.created_date ?? '').slice(0, 10),
-      closedDate:
-        w.stage?.state?.is_final === true ? String(w.modified_date ?? '').slice(0, 10) : null,
-    }));
+    .map((w) => {
+      const stage = (w.stage ?? {}) as Record<string, unknown>;
+      const state = (stage.state ?? {}) as Record<string, unknown>;
+
+      return {
+        id: String(w.id ?? ''),
+        displayId: String(w.display_id ?? ''),
+        title: String(w.title ?? ''),
+        body: String(w.body ?? ''),
+        stage: String(stage.name ?? ''),
+        createdDate: String(w.created_date ?? '').slice(0, 10),
+        closedDate: state.is_final === true ? String(w.modified_date ?? '').slice(0, 10) : null,
+      };
+    });
 };
 
 export type TCreateTicketInput = {
@@ -85,13 +86,14 @@ export type TCreateTicketInput = {
 
 /**
  * `custom_schema_spec: { tenant_fragment: true }` is MANDATORY whenever custom_fields is
- * present — without it every `tnt__*` key hard-fails with `field_not_in_schema`. There is no
- * `tags` key and there must not be one: the tag does not exist and passing it 400s the create.
+ * present — without it every `tnt__*` key hard-fails with `field_not_in_schema`, which is why
+ * the agent's earlier tickets had a blank Product module. There is no `tags` key and there
+ * must not be one: the tag does not exist and passing it 400s the create.
  */
 export const createTicket = async (
   input: TCreateTicketInput,
 ): Promise<{ id: string; displayId: string }> => {
-  const body: Record<string, unknown> = {
+  const args: Record<string, unknown> = {
     type: 'ticket',
     title: input.title,
     body: input.body,
@@ -111,26 +113,26 @@ export const createTicket = async (
   // A field that did not resolve is omitted, never guessed. A ticket with a missing account is
   // still a ticket somebody works; a finding with no ticket is a finding nobody owns.
   if (input.accountDon !== null) {
-    body.account = input.accountDon;
+    args.account = input.accountDon;
   }
 
   if (input.revOrgDon !== null) {
-    body.rev_org = input.revOrgDon;
+    args.rev_org = input.revOrgDon;
   }
 
   if (input.ownerDon !== null) {
-    body.owned_by = [input.ownerDon];
+    args.owned_by = [input.ownerDon];
   }
 
-  const result = await call('/works.create', body);
-  const work = (result.work ?? {}) as Record<string, unknown>;
+  const payload = asJson(await callTool('devrev', devrevTools.createTicket, args));
+  const work = (payload.work ?? payload.ticket ?? payload) as Record<string, unknown>;
 
-  return { id: String(work.id), displayId: String(work.display_id ?? '') };
+  return { id: String(work.id ?? ''), displayId: String(work.display_id ?? '') };
 };
 
 /** visibility MUST be internal. An external entry is a customer-facing message. */
 export const addInternalComment = async (workId: string, body: string): Promise<void> => {
-  await call('/timeline-entries.create', {
+  await callTool('devrev', devrevTools.addComment, {
     object: workId,
     type: 'timeline_comment',
     body,
@@ -139,5 +141,5 @@ export const addInternalComment = async (workId: string, body: string): Promise<
 };
 
 export const resolveTicket = async (workId: string, stage: string): Promise<void> => {
-  await call('/works.update', { id: workId, stage: { name: stage } });
+  await callTool('devrev', devrevTools.updateWork, { id: workId, stage: { name: stage } });
 };

@@ -372,7 +372,8 @@
   "overrides": [
     {
       "files": [
-        "src/core/db/**/*.ts",
+        "src/core/mcp/**/*.ts",
+        "src/core/stores/**/*.ts",
         "src/core/services/devrev/**/*.ts",
         "src/core/services/slack/**/*.ts",
         "src/core/pipeline/**/*.ts",
@@ -380,6 +381,15 @@
       ],
       "rules": {
         "@typescript-eslint/naming-convention": "off"
+      }
+    },
+    {
+      "files": [
+        "src/core/mcp/**/*.ts"
+      ],
+      "rules": {
+        "import/extensions": "off",
+        "import/no-unresolved": "off"
       }
     }
   ]

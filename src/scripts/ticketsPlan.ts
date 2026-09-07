@@ -3,9 +3,10 @@ import { join } from 'node:path';
 
 import type { TFindingsFile } from '../core/pipeline/detect';
 
-import { closeAll, loadSql, num, query, str } from '../core/db/client';
+import { closeAll } from '../core/mcp/client';
 import { moduleById } from '../core/modules/registry';
 import { planTickets } from '../core/pipeline/tickets';
+import { loadSql, num, query, str } from '../core/stores/query';
 import { parseArgs } from '../core/utils/args';
 import { logger } from '../core/utils/logger';
 

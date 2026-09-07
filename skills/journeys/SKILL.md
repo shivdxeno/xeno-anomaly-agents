@@ -107,11 +107,13 @@ Everything mechanical about that lives in code:
 
 ## The stores
 
-| What | Where | Tool |
-| ---- | ----- | ---- |
-| all metrics | `xeno_sql_zenmaster_new.commlog_aggregate`, `mongo_journeys.*` | `mcp__db-mcp__query_starrocks` |
-| merchant names | `zenmaster_new.merchant` | `mcp__db-mcp__query_mysql` — **prod** |
-| DevRev field resolution | `zenmaster_new.devrev_*` | `mcp__db-mcp__query_mysql_dev` — **dev** |
+All three are reached through the **`db-mcp`** server — never a driver, never a raw connection.
+
+| What | Store | db-mcp tool |
+| ---- | ----- | ----------- |
+| all metrics | `xeno_sql_zenmaster_new.commlog_aggregate`, `mongo_journeys.*` | `query_starrocks` |
+| merchant names | `zenmaster_new.merchant` — **prod** | `query_mysql` |
+| DevRev field resolution | `zenmaster_new.devrev_*` — **dev** | `query_mysql_dev` |
 
 The last two are different MySQL instances. None of the `devrev_*` tables exist in prod.
 

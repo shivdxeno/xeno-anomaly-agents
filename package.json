@@ -24,7 +24,8 @@
     "post": "ts-node -r dotenv/config src/scripts/post.ts",
     "skill:generate": "ts-node src/scripts/generateSkill.ts",
     "skill:check": "ts-node src/scripts/generateSkill.ts --check",
-    "run:daily": "ts-node -r dotenv/config src/scripts/runDaily.ts"
+    "run:daily": "ts-node -r dotenv/config src/scripts/runDaily.ts",
+    "mcp:tools": "ts-node -r dotenv/config src/scripts/mcpTools.ts"
   },
   "lint-staged": {
     "*.{ts,js}": [
@@ -32,8 +33,8 @@
     ]
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
     "dotenv": "^16.4.5",
-    "mysql2": "^3.11.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {

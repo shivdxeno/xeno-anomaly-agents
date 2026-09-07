@@ -5,7 +5,6 @@ import type { TWindow } from '../services/window';
 import type { TFinding, TModuleSpec, TSeries, TSilentDrop } from '../types';
 
 import { defaultThresholds, resolveThresholds } from '../configs/thresholds';
-import { day, loadSql, num, query, str } from '../db/client';
 import {
   compressSilentDrops,
   decideSection,
@@ -25,6 +24,7 @@ import {
 import { listAgentTickets } from '../services/devrev/client';
 import { applyRowCap, scoreSeverity } from '../services/rank';
 import { computeWindow } from '../services/window';
+import { day, loadSql, num, query, str } from '../stores/query';
 import { changePct } from '../utils/numbers';
 
 export type TJudgmentItem = { kind: string; detail: string };

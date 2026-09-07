@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 
-import { closeAll } from '../core/db/client';
+import { closeAll } from '../core/mcp/client';
 import { moduleById } from '../core/modules/registry';
 import { runDetect } from '../core/pipeline/detect';
 import { parseArgs, requireArg, todayIst } from '../core/utils/args';
