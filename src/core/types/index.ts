@@ -136,7 +136,16 @@ export type TModuleSpec = {
     reportedByDon: string;
     resolvedStage: string;
   };
-  slackChannel: { name: string; id: string };
+  slackChannel: {
+    name: string;
+    id: string;
+    /**
+     * Where `--test` posts instead. A DM channel (`D...`) or the user id (`U...`) Slack
+     * resolves to one. Kept separate from `id` so a test target can never be left in the
+     * production field by accident.
+     */
+    testDmId: string;
+  };
   thresholds?: Partial<TThresholds>;
 };
 

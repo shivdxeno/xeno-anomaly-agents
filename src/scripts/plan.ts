@@ -24,12 +24,21 @@ const main = (): void => {
   const findings = JSON.parse(readFileSync(requireArg(args, 'in'), 'utf8')) as TFindingsFile;
   const spec = moduleById(findings.module);
   const out = typeof args.out === 'string' ? args.out : 'plan.json';
-  const channel = typeof args.channel === 'string' ? args.channel : spec.slackChannel.id;
+  // A test run posts somewhere private AND files nothing. Those two belong together: a report
+  // in a DM with real tickets filed against real merchants is the worst of both.
+  const test = args.test === true;
+  const configured = test ? spec.slackChannel.testDmId : spec.slackChannel.id;
+  const channel = typeof args.channel === 'string' ? args.channel : configured;
 
   if (channel === '') {
+    const field = test ? 'slackChannel.testDmId' : 'slackChannel.id';
+    const hint = test
+      ? 'the DM to post test runs to — Slack profile, then Copy member ID'
+      : `the channel is #${spec.slackChannel.name}`;
+
     throw new Error(
-      'BLOCKED: no Slack channel id. Pass --channel, or fill slackChannel.id in ' +
-        `src/modules/${spec.id}/spec.ts (the channel is #${spec.slackChannel.name}).`,
+      `BLOCKED: no Slack channel id. Pass --channel, or fill ${field} in ` +
+        `src/modules/${spec.id}/spec.ts (${hint}).`,
     );
   }
   const resolution = new Map<number, { accountDon: string | null; revOrgDon: string | null }>();
@@ -79,11 +88,20 @@ const main = (): void => {
   ];
   const missing = merchantIds.filter((id) => (resolution.get(id)?.accountDon ?? null) === null);
 
-  writeFileSync(out, `${JSON.stringify(plan, null, 2)}\n`, 'utf8');
+  const output = test ? { ...plan, planned: [], testRun: true } : plan;
+
+  writeFileSync(out, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
   logger.info(
-    `plan: 2 messages, ${plan.planned.length} devrev calls, ` +
+    `plan: 2 messages, ${output.planned.length} devrev calls, ` +
       `${plan.suppressedByCap} suppressed by cap -> ${out}`,
   );
+
+  if (test) {
+    logger.warn(
+      `TEST RUN: posting to ${channel} and filing NOTHING — ${plan.planned.length} devrev ` +
+        'calls were dropped from the plan.',
+    );
+  }
 
   if (missing.length > 0) {
     logger.warn(

@@ -62,5 +62,10 @@ export const journeysModule: TModuleSpec = {
 
   // ⚑ The id is UNKNOWN and must be filled before the first run. The channel NAME is from
   // agent.md; nobody has stated its id, and inventing one posts the report into silence.
-  slackChannel: { name: 'proj-data-anomaly-alerting-agents', id: '' },
+  slackChannel: {
+    name: 'proj-data-anomaly-alerting-agents',
+    id: '',
+    // Shiv Deshpande's DM, for test runs. UNKNOWN — Slack profile → ⋮ → Copy member ID.
+    testDmId: '',
+  },
 };
